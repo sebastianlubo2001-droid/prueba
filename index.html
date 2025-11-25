@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Bird Pixel Pro</title>
+<style>
+body {
+    margin:0;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow:hidden;
+    background:linear-gradient(to top, #70c5ce 0%, #a0e0ff 100%);
+}
+#gameContainer {
+    position:relative;
+    width:400px;
+    height:600px;
+    margin:auto;
+    top:0; bottom:0; left:0; right:0;
+}
+canvas {
+    border:2px solid #000;
+    display:block;
+    background:linear-gradient(to top, #70c5ce 0%, #a0e0ff 100%);
+}
+#score {
+    position:absolute;
+    top:10px;
+    left:10px;
+    font-size:24px;
+    font-weight:bold;
+    color:white;
+    text-shadow:2px 2px 6px #000;
+    z-index:10;
+}
+#ui {
+    position:absolute;
+    width:100%;
+    height:100%;
+    top:0; left:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
+    transition: all 0.5s ease;
+    border-radius:15px;
+}
+.button {
+    padding:12px 25px;
+    margin:10px;
+    font-size:18px;
+    cursor:pointer;
+    border:none;
+    border-radius:10px;
+    background:linear-gradient(135deg,#ffcb05,#ff6b6b);
+    color:white;
+    font-weight:bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+.button:hover {
+    transform:scale(1.1);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+}
+#leaderboard {
+    width:90%;
+    max-width:300px;
+    margin-top:20px;
+    background:white;
+    padding:15px;
+    border-radius:12px;
+    text-align:left;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+#leaderboard h3 { margin-top:0; text-align:center; }
+#leaderboard ol { margin:0; padding-left:20px; }
+#retryContainer {
+    display:none;
+    position:absolute;
+    top:40%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    text-align:center;
+    z-index:20;
+}
+#retry {
+    font-size:36px;
+    background:rgba(0,0,0,0.8);
+    color:#ffcb05;
+    padding:20px 50px;
+    border-radius:12px;
+    cursor:pointer;
+    margin-bottom:15px;
+    text-shadow:2px 2px 6px #000;
+    transition: all 0.2s ease;
+}
+#retry:hover {
+    transform:scale(1.05);
+}
+#menuBtn {
+    font-size:20px;
+    padding:12px 30px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    background:linear-gradient(135deg,#6b5bff,#00e0ff);
+    color:white;
+    font-weight:bold;
+    box-shadow:0 4px 8px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+}
+#menuBtn:hover {
+    transform:scale(1.05);
+}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="score">Puntos: 0 - Nivel: 1</div>
+
+    <div id="ui">
+        <h1 style="color:#ffcb05; text-shadow:2px 2px 6px #000;">Flappy Bird Pixel Pro</h1>
+        <label style="color:white; font-size:18px;">Nombre: 
+            <input type="text" id="playerName" placeholder="Jugador" style="padding:5px 10px; font-size:16px; border-radius:5px; border:none; outline:none;">
+        </label>
+        <button class="button" id="startGame">Comenzar</button>
+        <div id="leaderboard">
+            <h3>Tabla de posiciones</h3>
+            <ol id="leaderboardList"></ol>
+        </div>
+    </div>
+
+    <div id="retryContainer">
+        <div id="retry">Intentar de nuevo</div>
+        <button id="menuBtn">Volver al menú</button>
+    </div>
+</div>
+
+<script>
+// ===== VARIABLES =====
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const ui = document.getElementById("ui");
+const scoreDiv = document.getElementById("score");
+const startBtn = document.getElementById("startGame");
+const playerInput = document.getElementById("playerName");
+const leaderboardList = document.getElementById("leaderboardList");
+const retryContainer = document.getElementById("retryContainer");
+const retryBtn = document.getElementById("retry");
+const menuBtn = document.getElementById("menuBtn");
+
+let birdImg = new Image();
+birdImg.src = "bird.png";
+
+let bird = {x:50, y:300, width:32, height:32, velocity:0};
+let gravity=0.5, jump=-10, pipes=[], coins=[], clouds=[], frame=0, score=0, level=1, pipeSpeed=2, gameRunning=false;
+let leaderboard = JSON.parse(localStorage.getItem('flappyLeaderboard')) || [];
+let coinsCollected = 0;
+
+let jumpSound = new Audio('jump.mp3');
+let coinSound = new Audio('coin.mp3');
+
+// NUBES PARALLAX
+for(let i=0;i<5;i++){
+    clouds.push({x: Math.random()*canvas.width, y: Math.random()*200+50, radius: Math.random()*30+20, speed: 0.2 + Math.random()*0.3});
+}
+
+// ===== FUNCIONES =====
+function updateLeaderboard(){
+    leaderboard.sort((a,b)=>b.score-a.score);
+    leaderboardList.innerHTML="";
+    leaderboard.slice(0,5).forEach(item=>{
+        let li = document.createElement('li');
+        li.textContent = `${item.name}: ${item.score}`;
+        leaderboardList.appendChild(li);
+    });
+}
+
+function startGame(){
+    if(playerInput.value.trim()==="") playerInput.value="Jugador";
+    ui.style.display="none";
+    retryContainer.style.display="none";
+    
+    gameRunning = true;
+    score = 0; level = 1; pipeSpeed = 2; frame = 0; pipes = []; coins = []; coinsCollected = 0;
+    bird.y = 300; bird.velocity = 0;
+    scoreDiv.innerText = `Puntos: ${score} - Nivel: ${level}`;
+}
+
+startBtn.addEventListener('click', startGame);
+retryBtn.addEventListener('click', startGame);
+menuBtn.addEventListener('click', ()=>{
+    ui.style.display="flex";
+    retryContainer.style.display="none";
+});
+
+// SALTO
+document.addEventListener("keydown", e=>{
+    if(e.code==="Space" && gameRunning){
+        bird.velocity=jump;
+        jumpSound.play();
+    }
+});
+
+// TUBOS Y MONEDAS
+function createPipe(){
+    let height=Math.floor(Math.random()*200)+100;
+    pipes.push({x:400,y:0,width:50,height:height, scored:false});
+    pipes.push({x:400,y:height+150,width:50,height:600-(height+150), scored:false});
+    coins.push({x:425, y: height+75, radius:10, collected:false, angle:0, type: "normal"});
+    if(coinsCollected>0 && coinsCollected%5===0){
+        coins.push({x:425, y: height+50, radius:12, collected:false, angle:0, type:"violet"});
+    }
+}
+
+// DIBUJAR
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // NUBES PARALLAX
+    clouds.forEach(cloud=>{
+        ctx.fillStyle="rgba(255,255,255,0.7)";
+        ctx.beginPath();
+        ctx.arc(cloud.x,cloud.y,cloud.radius,0,Math.PI*2);
+        ctx.fill();
+    });
+
+    // TUBOS
+    pipes.forEach(pipe=>{
+        let gradient = ctx.createLinearGradient(pipe.x, pipe.y, pipe.x+pipe.width, pipe.y+pipe.height);
+        gradient.addColorStop(0,"#0f9d58");
+        gradient.addColorStop(1,"#34a853");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(pipe.x, pipe.y, pipe.width, pipe.height);
+    });
+
+    // MONEDAS
+    coins.forEach(c=>{
+        if(!c.collected){
+            c.angle += 0.1;
+            ctx.save();
+            ctx.translate(c.x,c.y);
+            ctx.rotate(c.angle);
+            let g;
+            if(c.type === "normal"){
+                g = ctx.createRadialGradient(0,0,2,0,0,c.radius);
+                g.addColorStop(0,"#fff200");
+                g.addColorStop(0.5,"#ffff66");
+                g.addColorStop(1,"#ffbb00");
+            } else {
+                g = ctx.createRadialGradient(0,0,2,0,0,c.radius);
+                g.addColorStop(0,"#b300ff");
+                g.addColorStop(0.5,"#d966ff");
+                g.addColorStop(1,"#a600cc");
+            }
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(0,0,c.radius,0,Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+        }
+    });
+
+    // PÁJARO
+    ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+}
+
+// ACTUALIZAR JUEGO
+function update(){
+    if(!gameRunning) return;
+    clouds.forEach(c=>{c.x-=c.speed;if(c.x+c.radius<0)c.x=canvas.width+c.radius;});
+    bird.velocity += gravity; bird.y += bird.velocity;
+    if(bird.y<0 || bird.y+bird.height>canvas.height) endGame();
+
+    if(frame%90===0) createPipe();
+
+    pipes.forEach(pipe=>{
+        pipe.x -= pipeSpeed;
+        if(bird.x<pipe.x+pipe.width && bird.x+bird.width>pipe.x && bird.y<pipe.y+pipe.height && bird.y+bird.height>pipe.y) endGame();
+        if(!pipe.scored && pipe.x+pipe.width<bird.x && pipe.y===0){score++; pipe.scored=true;}
+    });
+
+    coins.forEach(c=>{
+        c.x -= pipeSpeed;
+        let dx = bird.x + bird.width/2 - c.x;
+        let dy = bird.y + bird.height/2 - c.y;
+        let dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist < c.radius + bird.width/2 && !c.collected){
+            if(c.type==="normal"){ score+=1; coinsCollected+=1;}
+            else {score+=5;}
+            c.collected=true;
+            coinSound.play();
+        }
+    });
+
+    if(score >= level*20){level++; pipeSpeed+=0.5;}
+    scoreDiv.innerText = `Puntos: ${score} - Nivel: ${level}`;
+    frame++;
+}
+
+// FIN DEL JUEGO
+function endGame(){
+    gameRunning=false;
+    leaderboard.push({name: playerInput.value, score: score});
+    localStorage.setItem('flappyLeaderboard', JSON.stringify(leaderboard));
+    updateLeaderboard();
+    retryContainer.style.display="block";
+}
+
+// BUCLE
+function gameLoop(){update(); draw(); requestAnimationFrame(gameLoop);}
+gameLoop();
+updateLeaderboard();
+</script>
+</body>
+</html>
