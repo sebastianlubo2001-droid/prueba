@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Repartos Thompson Móvil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <style>
+        /* Variables y Reset Básico */
+        :root {
+            --color-primary: #00897b; /* Teal 600 */
+            --color-primary-dark: #00695c; /* Teal 800 */
+            --color-accent: #ffb300; /* Amber */
+            --color-bg: #f5f5f5; /* Light Grey Background */
+            --color-text: #333;
+            --color-text-secondary: #666;
+            --card-bg: white;
+            --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            --input-bg: white;
+            --input-border: #ddd;
+        }
+        
+        /* Modo Oscuro */
+        body.dark-mode {
+            --color-bg: #121212;
+            --color-text: #e0e0e0;
+            --color-text-secondary: #b0b0b0;
+            --card-bg: #1e1e1e;
+            --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            --input-bg: #2d2d2d;
+            --input-border: #404040;
+        }
+        
+        body { 
+            margin: 0; 
+            font-family: 'Roboto', sans-serif; 
+            background: var(--color-bg); 
+            color: var(--color-text);
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* 1. Header (App Bar) */
+        header { 
+            background: var(--color-primary-dark); 
+            color: white; 
+            padding: 16px 15px; 
+            font-size: 20px; 
+            font-weight: 500; 
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header .header-content {
+            display: flex;
+            align-items: center;
+        }
+        header i { margin-right: 10px; font-size: 24px; }
+        
+        /* Toggle Modo Oscuro */
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+        .theme-toggle i {
+            font-size: 20px;
+            color: white;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+        }
+        .theme-toggle.dark i {
+            transform: rotate(360deg) scale(1.15);
+            filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
+        }
+        .theme-toggle:hover i {
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+        }
+        .theme-toggle.dark:hover i {
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+        }
+
+        /* 2. Layout Principal */
+        .app-container { 
+            padding: 10px; 
+            max-width: 600px; 
+            margin: auto; 
+        }
+
+        /* 3. Tarjetas (Material Design) */
+        .card-panel { 
+            background: var(--card-bg); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 15px; 
+            box-shadow: var(--card-shadow);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-panel h2 { 
+            font-size: 20px; 
+            font-weight: 500; 
+            color: var(--color-primary-dark);
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--input-border);
+            padding-bottom: 8px;
+        }
+
+        /* 4. Inputs y Selects */
+        .form-group { margin-bottom: 15px; }
+        label { 
+            display: block; 
+            font-size: 14px; 
+            color: var(--color-text-secondary); 
+            margin-bottom: 5px; 
+            font-weight: 500;
+        }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid var(--input-border); 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            transition: border-color 0.3s, background-color 0.3s, color 0.3s;
+            background-color: var(--input-bg);
+            color: var(--color-text);
+        }
+        input:focus, select:focus { 
+            border-color: var(--color-primary); 
+            outline: none; 
+            box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.2);
+        }
+        input[readonly] {
+            background-color: var(--input-bg);
+            color: var(--color-text-secondary);
+            opacity: 0.8;
+        }
+        body.dark-mode input[readonly] {
+            opacity: 0.7;
+        }
+
+        /* Autocompletado de direcciones */
+        .autocomplete-container {
+            position: relative;
+        }
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10000;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+        .autocomplete-suggestions {
+            background: var(--card-bg);
+            border-color: var(--input-border);
+        }
+        .suggestion-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--input-border);
+            transition: background-color 0.2s;
+        }
+        .suggestion-item:hover {
+            background-color: var(--input-bg);
+        }
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        .suggestion-street {
+            font-weight: 500;
+            color: var(--color-text);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .suggestion-distance {
+            font-size: 11px;
+            color: var(--color-primary);
+            background: rgba(0, 137, 123, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        .suggestion-address {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: 2px;
+        }
+
+        /* 5. Botones */
+        .btn { 
+            width: 100%; 
+            padding: 14px; 
+            margin-top: 5px;
+            border-radius: 8px; 
+            border: none; 
+            font-weight: 500; 
+            cursor: pointer; 
+            transition: background-color 0.3s, box-shadow 0.3s, transform 0.1s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .btn-primary { 
+            background: var(--color-primary); 
+            color: white; 
+            box-shadow: 0 3px 6px rgba(0, 137, 123, 0.3);
+        }
+        .btn-primary:hover { 
+            background: var(--color-primary-dark); 
+            box-shadow: 0 5px 10px rgba(0, 137, 123, 0.4);
+        }
+        .btn-secondary {
+            background: #eee;
+            color: #333;
+            box-shadow: none;
+            font-weight: 400;
+        }
+        .btn i { margin-right: 8px; font-size: 18px; }
+
+        /* 6. Mapa y Resultados */
+        #map { 
+            height: 200px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .result-box {
+            background: var(--input-bg);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 15px;
+            border: 2px solid var(--color-primary);
+        }
+        .result-box p {
+            color: var(--color-text-secondary);
+        }
+        #valor { 
+            font-size: 24px; 
+            font-weight: 700; 
+            color: var(--color-primary-dark); 
+            margin: 0; 
+        }
+
+        /* 7. Toast/Mensajes (Snackbar style) */
+        .toast { 
+            position: fixed; 
+            bottom: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #333; 
+            color: white; 
+            padding: 12px 20px; 
+            border-radius: 6px; 
+            opacity: 0; 
+            transition: opacity 0.4s, bottom 0.4s; 
+            z-index: 9999;
+            min-width: 250px;
+            text-align: center;
+        }
+        .show { opacity: 1; bottom: 30px; }
+
+        /* 8. Historial (Lista estilizada) */
+        .history-list { margin-top: 10px; }
+        .history-item { 
+            background: var(--card-bg); 
+            border-radius: 8px; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-left: 4px solid var(--color-primary);
+            transition: background-color 0.3s ease;
+        }
+        .history-details h4 { 
+            margin: 0 0 5px 0; 
+            font-size: 16px; 
+            font-weight: 500; 
+            color: var(--color-text);
+        }
+        .history-details p { 
+            margin: 0; 
+            font-size: 12px; 
+            color: var(--color-text-secondary);
+        }
+        .history-cost { 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--color-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .history-cost-btn {
+            padding: 8px 12px; 
+            font-size: 12px;
+            margin: 0;
+            width: auto;
+            background: var(--color-primary);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <i class="fas fa-motorcycle"></i> Repartos Thompson
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
+        <i class="fas fa-moon"></i>
+    </button>
+</header>
+
+<div class="app-container">
+
+    <div class="card-panel">
+        <h2><i class="fas fa-map-marker-alt"></i> Cotización Rápida</h2>
+
+        <div id="map"></div>
+
+        <div class="form-group">
+            <label for="cadete">Cadete Asignado</label>
+            <input type="text" id="cadete" placeholder="Ej: Juan Pérez">
+        </div>
+
+        <div class="form-group">
+            <label for="origen">Punto de Origen</label>
+            <input type="text" id="origen" value="Farmacia Thompson, Av. Francisco Ramírez 1328, Paraná" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+            <p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 0;"><i class="fas fa-info-circle"></i> Punto de salida fijo: Farmacia Thompson</p>
+        </div>
+
+        <div class="form-group">
+            <label for="destino">Punto de Destino</label>
+            <div class="autocomplete-container">
+                <input type="text" id="destino" placeholder="Escribe el nombre de la calle (ej: San Martín)" autocomplete="off">
+                <div id="suggestions" class="autocomplete-suggestions"></div>
+            </div>
+            <p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 0;"><i class="fas fa-info-circle"></i> Escribe el nombre de la calle y selecciona de la lista</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="vehiculo"><i class="fas fa-vehicle"></i> Tipo de Vehículo</label>
+            <select id="vehiculo" onchange="actualizarTarifaSegunVehiculo()">
+                <option value="moto">🏍️ Moto</option>
+                <option value="bici">🚲 Bicicleta</option>
+                <option value="auto">🚗 Auto</option>
+            </select>
+        </div>
+        
+        <div class="form-group" style="display: flex; gap: 10px;">
+             <div style="width: 50%;">
+                <label for="tarifaKm">Tarifa/km ($)</label>
+                <input type="number" id="tarifaKm" placeholder="Precio por km" value="30" style="padding: 12px;" step="0.01">
+            </div>
+            <div style="width: 50%;">
+                <label for="pago">Método de Pago</label>
+                <select id="pago">
+                    <option value="Contado">Contado</option>
+                    <option value="Débito">POSNET - Débito</option>
+                    <option value="Crédito">POSNET - Crédito</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="calcular()"><i class="fas fa-route"></i> Calcular Distancia y Valor</button>
+        
+        <div class="result-box">
+            <p style="font-size: 14px; margin-bottom: 5px; font-weight: 400; color: #333;">Valor estimado del viaje:</p>
+            <p id="valor">Valor del viaje: $0.00</p>
+        </div>
+        
+        <button class="btn btn-primary" style="margin-top: 15px; background: var(--color-accent); box-shadow: 0 3px 6px rgba(255, 179, 0, 0.4);" onclick="guardarPDF()">
+             <i class="fas fa-file-pdf"></i> Generar y Guardar Viaje (PDF)
+        </button>
+    </div>
+
+    <div class="card-panel">
+        <h2><i class="fas fa-history"></i> Historial de Viajes</h2>
+        <div class="history-list" id="historial">
+            <p style="text-align: center; color: #999;">Aún no hay viajes guardados.</p>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast">Mensaje de confirmación</div>
+
+<script>
+    const PRIMARY_COLOR = '#00897b'; // Color primario para la ruta
+    // Coordenadas de Farmacia Thompson, Paraná, Entre Ríos
+    // Av. Francisco Ramírez 1328, E3100 Paraná, Entre Ríos
+    const FARMACIA_THOMPSON_DIRECCION = "Farmacia Thompson, Av. Francisco Ramírez 1328, Paraná, Entre Ríos, Argentina";
+    const FARMACIA_THOMPSON_COORDS_INICIALES = [-31.7320, -60.5287]; // Coordenadas aproximadas mientras se geocodifica
+    
+    let historial = [];
+    let map = null;
+    let markers = [];
+    let origenCoords = null; // Se establecerá después de geocodificar
+    let destinoCoords = null;
+    let ubicacionUsuario = null; // Ubicación del usuario para priorizar calles cercanas
+
+    // --- ÍCONOS PERSONALIZADOS ---
+    const motorcycleIcon = L.icon({
+        // Ícono de motocicleta de Flaticon
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/1149/1149959.png', 
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, -35]
+    });
+
+    const destinationIcon = L.divIcon({
+        className: 'destination-circle-icon',
+        // Estructura HTML para un círculo de color acento con un borde blanco.
+        html: '<div style="background-color: var(--color-accent); width: 22px; height: 22px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15] // Centra el círculo sobre las coordenadas
+    });
+
+    // --- Configuración de Tarifas por Vehículo ---
+    const TARIFAS_VEHICULOS = {
+        moto: { tarifaKm: 30, tarifaBase: 50, nombre: "Moto" },
+        bici: { tarifaKm: 20, tarifaBase: 40, nombre: "Bicicleta" },
+        auto: { tarifaKm: 50, tarifaBase: 80, nombre: "Auto" }
+    };
+
+    function actualizarTarifaSegunVehiculo() {
+        const vehiculo = document.getElementById('vehiculo').value;
+        const tarifas = TARIFAS_VEHICULOS[vehiculo];
+        document.getElementById('tarifaKm').value = tarifas.tarifaKm;
+        // Actualizar mapa si ya hay marcadores
+        if(map && (origenCoords || destinoCoords)) {
+            actualizarMapa();
+        }
+    }
+
+    // --- Funciones de Utilidad ---
+    function showToast(msg){
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(()=>toast.classList.remove('show'),3000);
+    }
+
+    // --- Autocompletado de Direcciones ---
+    let timeoutAutocomplete = null;
+    let direccionSeleccionada = null;
+
+    function calcularDistancia(coords1, coords2) {
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = (coords2[0] - coords1[0]) * Math.PI / 180;
+        const dLon = (coords2[1] - coords1[1]) * Math.PI / 180;
+        const lat1 = coords1[0] * Math.PI / 180;
+        const lat2 = coords2[0] * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    async function buscarDireccionesParana(query) {
+        if(!query || query.length < 3) {
+            return [];
+        }
+        
+        try {
+            // Buscar direcciones en Paraná, Entre Ríos
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}, Paraná, Entre Ríos, Argentina&limit=15&addressdetails=1`);
+            const data = await res.json();
+            
+            // Filtrar solo resultados de Paraná y formatear
+            let resultados = data
+                .filter(item => {
+                    const address = item.address || {};
+                    const city = address.city || address.town || address.municipality || '';
+                    const state = address.state || '';
+                    return city.toLowerCase().includes('paraná') || 
+                           state.toLowerCase().includes('entre ríos') ||
+                           item.display_name.toLowerCase().includes('paraná');
+                })
+                .map(item => {
+                    const address = item.address || {};
+                    const street = address.road || address.street || '';
+                    const number = address.house_number || '';
+                    const displayName = item.display_name;
+                    const coords = [parseFloat(item.lat), parseFloat(item.lon)];
+                    
+                    // Calcular distancia desde la ubicación del usuario si está disponible
+                    let distancia = null;
+                    if(ubicacionUsuario) {
+                        distancia = calcularDistancia(ubicacionUsuario, coords);
+                    }
+                    
+                    return {
+                        street: street,
+                        number: number,
+                        fullAddress: displayName,
+                        coords: coords,
+                        shortAddress: street + (number ? ' ' + number : '') + ', Paraná',
+                        distancia: distancia
+                    };
+                });
+            
+            // Ordenar por distancia si hay ubicación del usuario
+            if(ubicacionUsuario) {
+                resultados.sort((a, b) => {
+                    if(a.distancia === null) return 1;
+                    if(b.distancia === null) return -1;
+                    return a.distancia - b.distancia;
+                });
+            }
+            
+            // Limitar a 10 resultados
+            return resultados.slice(0, 10);
+        } catch(error) {
+            console.error('Error en búsqueda:', error);
+            return [];
+        }
+    }
+
+    function mostrarSugerencias(sugerencias) {
+        const container = document.getElementById('suggestions');
+        if(!container) {
+            console.error('Contenedor de sugerencias no encontrado');
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        if(sugerencias.length === 0) {
+            container.classList.remove('show');
+            return;
+        }
+        
+        sugerencias.forEach((sug, index) => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            const distanciaHtml = sug.distancia !== null 
+                ? `<span class="suggestion-distance">📍 ${sug.distancia.toFixed(1)} km</span>` 
+                : '';
+            
+            const streetName = sug.street || 'Calle sin nombre';
+            const streetDisplay = streetName + (sug.number ? ' ' + sug.number : '');
+            
+            item.innerHTML = `
+                <div class="suggestion-street">
+                    <span>${streetDisplay}</span>
+                    ${distanciaHtml}
+                </div>
+                <div class="suggestion-address">${sug.fullAddress.split(',').slice(0, 3).join(', ')}</div>
+            `;
+            item.addEventListener('click', () => {
+                seleccionarDireccion(sug);
+            });
+            container.appendChild(item);
+        });
+        
+        container.classList.add('show');
+        console.log('Sugerencias mostradas:', sugerencias.length);
+    }
+
+    function seleccionarDireccion(direccion) {
+        const input = document.getElementById('destino');
+        input.value = direccion.shortAddress;
+        direccionSeleccionada = direccion;
+        document.getElementById('suggestions').classList.remove('show');
+    }
+
+    async function geocode(direccion){
+        // Si es la Farmacia Thompson, retornar coordenadas fijas
+        if(direccion.includes("Farmacia Thompson") || direccion.includes("farmacia thompson")) {
+            return origenCoords || FARMACIA_THOMPSON_COORDS_INICIALES;
+        }
+        
+        // Si hay una dirección seleccionada del autocompletado, usar sus coordenadas
+        if(direccionSeleccionada && direccionSeleccionada.shortAddress === direccion) {
+            return direccionSeleccionada.coords;
+        }
+        
+        // Buscar la dirección
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(direccion)}, Paraná, Entre Ríos, Argentina&limit=1`);
+        const data = await res.json();
+        if(data.length>0){
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        } else {
+            showToast("No se encontró la dirección: "+direccion);
+            return null;
+        }
+    }
+
+    // --- Funciones de Mapa (ACTUALIZADA) ---
+    async function actualizarMapa(){
+        // Limpiar marcadores y rutas anteriores
+        markers.forEach(m=>map.removeLayer(m));
+        markers = [];
+        
+        const vehiculo = document.getElementById('vehiculo').value;
+        let vehiculoIcono = motorcycleIcon;
+        let vehiculoEmoji = "🏍️";
+        
+        if(vehiculo === 'bici') {
+            vehiculoEmoji = "🚲";
+            vehiculoIcono = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -35]
+            });
+        } else if(vehiculo === 'auto') {
+            vehiculoEmoji = "🚗";
+            vehiculoIcono = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -35]
+            });
+        }
+        
+        if(origenCoords){
+            // Usamos el ícono según el vehículo seleccionado
+            const mO = L.marker(origenCoords, {icon: vehiculoIcono}).addTo(map).bindPopup(`🏥 ${vehiculoEmoji} Farmacia Thompson<br>Punto de Salida Fijo`).openPopup();
+            markers.push(mO);
+        }
+        if(destinoCoords){
+            // Usamos el ícono de círculo
+            const mD = L.marker(destinoCoords, {icon: destinationIcon}).addTo(map).bindPopup("🎯 Destino").openPopup();
+            markers.push(mD);
+        }
+
+        if(origenCoords && destinoCoords){
+            // Dibujar la ruta (Polyline) con el color primario
+            const line = L.polyline([origenCoords,destinoCoords],{color: PRIMARY_COLOR, weight: 5, opacity: 0.8}).addTo(map);
+            markers.push(line);
+            
+            // Ajustar el zoom para que se vean ambos puntos
+            map.fitBounds([origenCoords,destinoCoords],{padding:[50,50]});
+        }
+    }
+
+    // --- Funciones de Geolocalización y Cálculo ---
+    async function calcular(){
+        const destinoInput = document.getElementById('destino');
+        const destinoText = destinoInput.value;
+        
+        if(!destinoText){ showToast("Ingresa la dirección de destino"); return; }
+        
+        // Asegurar que el origen esté establecido
+        if(!origenCoords) {
+            origenCoords = await geocodificarFarmaciaThompson();
+        }
+        
+        // Si hay una dirección seleccionada del autocompletado, usar sus coordenadas directamente
+        if(direccionSeleccionada && direccionSeleccionada.shortAddress === destinoText) {
+            destinoCoords = direccionSeleccionada.coords;
+        } else {
+            // Si no, buscar la dirección
+            destinoCoords = await geocode(destinoText);
+        }
+        
+        if(!origenCoords || !destinoCoords) {
+            showToast("Error: No se pudieron obtener las coordenadas. Verifica la dirección de destino.");
+            return null;
+        }
+        
+        await actualizarMapa();
+        
+        const distancia = getDistanceKm(origenCoords,destinoCoords);
+        
+        const vehiculo = document.getElementById('vehiculo').value;
+        const tarifas = TARIFAS_VEHICULOS[vehiculo];
+        const tarifaKm = parseFloat(document.getElementById('tarifaKm').value) || tarifas.tarifaKm;
+        const tarifaBase = tarifas.tarifaBase; 
+        const valor = tarifaBase + distancia*tarifaKm;
+        
+        document.getElementById('valor').textContent = `$${valor.toFixed(2)}`;
+        showToast(`Ruta calculada. Distancia: ${distancia.toFixed(2)} km (${tarifas.nombre}).`);
+        
+        return {distancia, valor, vehiculo, tarifaKm, tarifaBase};
+    }
+
+    function getDistanceKm(a,b){
+        const R = 6371; 
+        const dLat = (b[0]-a[0])*Math.PI/180;
+        const dLon = (b[1]-a[1])*Math.PI/180;
+        const lat1 = a[0]*Math.PI/180;
+        const lat2 = b[0]*Math.PI/180;
+        const x = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.sin(dLon/2)*Math.sin(dLon/2)*Math.cos(lat1)*Math.cos(lat2);
+        const c = 2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+        return R*c;
+    }
+
+    // Función removida - el origen siempre es Farmacia Thompson
+
+    // --- Funciones de Persistencia y PDF ---
+    async function guardarPDF(){
+        const cadete = document.getElementById('cadete').value;
+        const destinoText = document.getElementById('destino').value;
+
+        if(!cadete || !destinoText){ 
+            showToast("Completa todos los campos"); 
+            return; 
+        }
+        
+        // Asegurar que el origen esté geocodificado
+        if(!origenCoords) {
+            origenCoords = await geocodificarFarmaciaThompson();
+        }
+        
+        const origenText = FARMACIA_THOMPSON_DIRECCION;
+        
+        let calculo;
+        try {
+             calculo = await calcular();
+        } catch(e) {
+             console.error('Error al calcular:', e);
+             showToast("Error al calcular el valor. Revisa las direcciones.");
+             return;
+        }
+
+        if(!calculo || !calculo.distancia || !calculo.valor) {
+            showToast("Error: No se pudo calcular la distancia. Verifica la dirección de destino.");
+            return;
+        }
+
+        const {distancia, valor, vehiculo, tarifaKm, tarifaBase} = calculo;
+        const pago = document.getElementById('pago').value;
+        const fecha = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        
+        // Verificar que las coordenadas estén disponibles
+        if(!origenCoords || !destinoCoords) {
+            showToast("Error: No se pudieron obtener las coordenadas. Intenta calcular la ruta primero.");
+            return;
+        }
+        
+        const viaje = {
+            cadete, distancia, valor, pago, fecha, vehiculo,
+            origenCoords, destinoCoords, tarifaKm, tarifaBase,
+            origenNombre: origenText, 
+            destinoNombre: destinoText,
+            vehiculoNombre: TARIFAS_VEHICULOS[vehiculo].nombre
+        };
+        
+        try {
+            historial.unshift(viaje); 
+            actualizarHistorial();
+            generarPDF(viaje);
+            showToast("Viaje guardado y PDF generado.");
+        } catch(e) {
+            console.error('Error al guardar o generar PDF:', e);
+            showToast("Error al generar el PDF. Verifica la consola para más detalles.");
+        }
+    }
+
+    function actualizarHistorial(){
+        const div = document.getElementById('historial');
+        div.innerHTML = "";
+        if (historial.length === 0) {
+            div.innerHTML = '<p style="text-align: center; color: #999;">Aún no hay viajes guardados.</p>';
+            return;
+        }
+
+        historial.forEach((v, index)=>{
+            const card = document.createElement('div'); 
+            card.className='history-item';
+            
+            const vehiculoIcon = v.vehiculo === 'moto' ? '🏍️' : v.vehiculo === 'bici' ? '🚲' : '🚗';
+            card.innerHTML = `
+                <div class="history-details">
+                    <h4>${v.cadete} (${v.pago})</h4>
+                    <p>${vehiculoIcon} ${v.vehiculoNombre || 'Moto'} | ${v.distancia.toFixed(2)} km</p>
+                    <p>Origen: ${v.origenNombre} | Destino: ${v.destinoNombre}</p>
+                    <p>${v.fecha}</p>
+                </div>
+                <div class="history-cost">
+                    $${v.valor.toFixed(0)}
+                    <button class="btn history-cost-btn" onclick="generarPDF(${index})">
+                        <i class="fas fa-file-pdf" style="margin:0;"></i>
+                    </button>
+                </div>`;
+            div.appendChild(card);
+        });
+    }
+
+    function generarPDF(viaje){
+        try {
+            const v = typeof viaje==='number'?historial[viaje]:viaje;
+            
+            if(!v) {
+                console.error('Viaje no válido:', viaje);
+                showToast("Error: Datos del viaje no válidos.");
+                return;
+            }
+            
+            if(!window.jspdf) {
+                console.error('jsPDF no está cargado');
+                showToast("Error: La librería PDF no está disponible.");
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+        
+        doc.setFontSize(22);
+        doc.setTextColor(0, 137, 123); 
+        doc.text("REPARTOS THOMPSON - COMPROBANTE", 20, 20);
+        
+        doc.setLineWidth(0.5);
+        doc.line(20, 25, 180, 25); 
+
+        doc.setFontSize(14);
+        doc.setTextColor(50, 50, 50); 
+        doc.text(`Cadete: ${v.cadete}`, 20, 40);
+        doc.text(`Fecha/Hora: ${v.fecha}`, 20, 50);
+
+        doc.setFontSize(16);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`ORIGEN: ${v.origenNombre}`, 20, 65);
+        doc.text(`DESTINO: ${v.destinoNombre}`, 20, 75);
+
+        doc.setFontSize(14);
+        doc.setTextColor(100, 100, 100); 
+        const vehiculoNombre = v.vehiculoNombre || (v.vehiculo === 'moto' ? 'Moto' : v.vehiculo === 'bici' ? 'Bicicleta' : 'Auto');
+        doc.text(`Vehículo: ${vehiculoNombre}`, 20, 90);
+        doc.text(`Distancia calculada: ${v.distancia.toFixed(2)} km`, 20, 100);
+        doc.text(`Tarifa Base ($${v.tarifaBase || 50}) + Tarifa/km ($${v.tarifaKm})`, 20, 110);
+        doc.text(`Método de pago: ${v.pago}`, 20, 120);
+        
+        doc.setLineWidth(0.7);
+        doc.line(20, 130, 180, 130); 
+
+        doc.setFontSize(24);
+        doc.setTextColor(0, 105, 92);
+        doc.text(`TOTAL A COBRAR: $${v.valor.toFixed(0)}`, 20, 145);
+
+        const nombreArchivo = `Viaje_${v.cadete}_${v.fecha.replace(/[:\/ ]/g,'_')}.pdf`;
+        doc.save(nombreArchivo);
+        } catch(e) {
+            console.error('Error al generar PDF:', e);
+            showToast("Error al generar el PDF: " + e.message);
+        }
+    }
+
+    // --- Modo Oscuro/Claro ---
+    function inicializarTema() {
+        const temaGuardado = localStorage.getItem('tema');
+        const prefiereOscuro = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if(temaGuardado === 'dark' || (!temaGuardado && prefiereOscuro)) {
+            activarModoOscuro();
+        } else {
+            activarModoClaro();
+        }
+    }
+
+    function activarModoOscuro() {
+        document.body.classList.add('dark-mode');
+        const toggle = document.getElementById('themeToggle');
+        toggle.classList.add('dark');
+        toggle.querySelector('i').className = 'fas fa-sun';
+        localStorage.setItem('tema', 'dark');
+    }
+
+    function activarModoClaro() {
+        document.body.classList.remove('dark-mode');
+        const toggle = document.getElementById('themeToggle');
+        toggle.classList.remove('dark');
+        toggle.querySelector('i').className = 'fas fa-moon';
+        localStorage.setItem('tema', 'light');
+    }
+
+    function toggleTema() {
+        if(document.body.classList.contains('dark-mode')) {
+            activarModoClaro();
+        } else {
+            activarModoOscuro();
+        }
+    }
+
+    // --- Obtener Ubicación del Usuario ---
+    function obtenerUbicacionUsuario() {
+        if(navigator.geolocation) {
+            showToast("Obteniendo tu ubicación para mejorar las sugerencias...");
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    ubicacionUsuario = [position.coords.latitude, position.coords.longitude];
+                    showToast("Ubicación obtenida. Las calles cercanas aparecerán primero.");
+                },
+                (error) => {
+                    console.log("No se pudo obtener la ubicación:", error);
+                    showToast("Activa la ubicación para ver calles cercanas primero.");
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            showToast("Tu navegador no soporta geolocalización.");
+        }
+    }
+
+    // --- Geocodificar Farmacia Thompson ---
+    async function geocodificarFarmaciaThompson() {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(FARMACIA_THOMPSON_DIRECCION)}&limit=1`);
+            const data = await res.json();
+            if(data.length > 0) {
+                origenCoords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+                console.log('Farmacia Thompson geocodificada:', origenCoords);
+                return origenCoords;
+            } else {
+                // Si no se encuentra, usar coordenadas aproximadas
+                origenCoords = FARMACIA_THOMPSON_COORDS_INICIALES;
+                console.log('Usando coordenadas aproximadas para Farmacia Thompson');
+                return origenCoords;
+            }
+        } catch(error) {
+            console.error('Error al geocodificar Farmacia Thompson:', error);
+            origenCoords = FARMACIA_THOMPSON_COORDS_INICIALES;
+            return origenCoords;
+        }
+    }
+
+    // --- Inicializar Mapa ---
+    function inicializarMapa(coords) {
+        if(map) {
+            map.remove();
+        }
+        
+        map = L.map('map').setView(coords, 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+        
+        // Esperar a que el mapa se renderice
+        setTimeout(() => {
+            map.invalidateSize();
+            
+            // Marcar la Farmacia Thompson en el mapa
+            const vehiculo = document.getElementById('vehiculo').value;
+            let vehiculoIcono = motorcycleIcon;
+            let vehiculoEmoji = "🏍️";
+            
+            if(vehiculo === 'bici') {
+                vehiculoEmoji = "🚲";
+                vehiculoIcono = L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -35]
+                });
+            } else if(vehiculo === 'auto') {
+                vehiculoEmoji = "🚗";
+                vehiculoIcono = L.icon({
+                    iconUrl: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 40],
+                    popupAnchor: [0, -35]
+                });
+            }
+            
+            const markerOrigen = L.marker(coords, {icon: vehiculoIcono})
+                .addTo(map)
+                .bindPopup(`🏥 ${vehiculoEmoji} Farmacia Thompson<br>Av. Francisco Ramírez 1328<br>Punto de Salida Fijo`)
+                .openPopup();
+            markers.push(markerOrigen);
+        }, 100);
+    }
+
+    // --- Inicialización ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Inicializar tema
+        inicializarTema();
+        document.getElementById('themeToggle').addEventListener('click', toggleTema);
+        
+        // Obtener ubicación del usuario
+        obtenerUbicacionUsuario();
+        
+        // Geocodificar Farmacia Thompson y luego inicializar el mapa
+        const coordsFarmacia = await geocodificarFarmaciaThompson();
+        inicializarMapa(coordsFarmacia);
+        
+        // Inicializar tarifa según vehículo por defecto
+        actualizarTarifaSegunVehiculo();
+        
+        // Configurar autocompletado para el campo de destino
+        const destinoInput = document.getElementById('destino');
+        
+        if(destinoInput) {
+            destinoInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                
+                // Limpiar timeout anterior
+                if(timeoutAutocomplete) {
+                    clearTimeout(timeoutAutocomplete);
+                }
+                
+                // Si el campo está vacío, limpiar selección
+                if(query.length === 0) {
+                    direccionSeleccionada = null;
+                    const suggestionsEl = document.getElementById('suggestions');
+                    if(suggestionsEl) {
+                        suggestionsEl.classList.remove('show');
+                    }
+                    return;
+                }
+                
+                // Esperar 300ms después de que el usuario deje de escribir
+                timeoutAutocomplete = setTimeout(async () => {
+                    console.log('Buscando direcciones para:', query);
+                    const sugerencias = await buscarDireccionesParana(query);
+                    console.log('Sugerencias encontradas:', sugerencias.length);
+                    mostrarSugerencias(sugerencias);
+                }, 300);
+            });
+            
+            destinoInput.addEventListener('focus', () => {
+                const query = destinoInput.value.trim();
+                if(query.length >= 3 && !direccionSeleccionada) {
+                    buscarDireccionesParana(query).then(sugerencias => {
+                        mostrarSugerencias(sugerencias);
+                    });
+                }
+            });
+            
+            // Cerrar sugerencias al hacer clic fuera
+            document.addEventListener('click', (e) => {
+                const container = document.querySelector('.autocomplete-container');
+                const suggestionsEl = document.getElementById('suggestions');
+                if(container && suggestionsEl && !container.contains(e.target)) {
+                    suggestionsEl.classList.remove('show');
+                }
+            });
+            
+            // Limpiar selección al borrar el campo
+            destinoInput.addEventListener('keydown', (e) => {
+                if(e.key === 'Backspace' || e.key === 'Delete') {
+                    direccionSeleccionada = null;
+                }
+            });
+        } else {
+            console.error('Campo de destino no encontrado');
+        }
+    });
+
+</script>
+</body>
+</html>
